@@ -1,0 +1,4 @@
+# dsh-oha-whale-compress bundle patch
+- insert:
+    - id: dsh-oha-whale-compress
+      name: dsh-oha-whale-compress
