@@ -179,20 +179,24 @@ window.__ModuleLoader__.load({
     }
 
     /* --- dock button (composer.dock, right-aligned) --- */
+    // 原设计是「输入框下方右下角」常驻按钮。宿主 dock 是单行居中 flex，按钮若直接做
+    // dock 的子项只会被摆到中间，所以包一层整行容器，由容器把它推到右下角。
     function DockButton (props) {
       const t = makeT(props.t)
       const [imgFailed, setImgFailed] = react.useState(false)
       const logo = imgFailed
         ? IconCompress
         : react.createElement('img', { src: ICON_URL, alt: '', onError: () => setImgFailed(true) })
-      return react.createElement('button', {
-        className: 'wcomp-dock',
-        title: t.sidebarSub,
-        'aria-label': t.sidebarAria,
-        onClick: (e) => { e.stopPropagation(); openModal('full') }
-      },
-        logo,
-        react.createElement('span', { className: 'wcomp-dock-text' }, t.sidebarSub)
+      return react.createElement('div', { className: 'wcomp-dock-row' },
+        react.createElement('button', {
+          className: 'wcomp-dock',
+          title: t.sidebarSub,
+          'aria-label': t.sidebarAria,
+          onClick: (e) => { e.stopPropagation(); openModal('full') }
+        },
+          logo,
+          react.createElement('span', { className: 'wcomp-dock-text' }, t.sidebarSub)
+        )
       )
     }
 
@@ -409,13 +413,16 @@ window.__ModuleLoader__.load({
       '.sm-action-sub{font-size:10px;color:var(--dsw-alias-label-secondary,#777b84);white-space:nowrap}',
 
       // composer dock 常驻按钮（靠右）
-      '.wcomp-dock{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px 4px 6px;border-radius:10px;background:var(--dsw-alias-button-elevated-fill,#f5f6f8);border:1px solid var(--dsw-alias-border-l2,#e7e8ec);color:#4f7cff;cursor:pointer;white-space:nowrap;margin-left:auto;user-select:none;-webkit-tap-highlight-color:transparent}',
+      // 0.1.6 的 dock 是居中的 flex 行；margin-left:auto 会和余额条的 margin:auto 互抢空间，
+      // 把兄弟元素挤到溢出重叠，所以改为不参与伸缩的普通项。
+      '.wcomp-dock{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px 4px 6px;border-radius:10px;background:var(--dsw-alias-button-elevated-fill,#f5f6f8);border:1px solid var(--dsw-alias-border-l2,#e7e8ec);color:#4f7cff;cursor:pointer;white-space:nowrap;flex:0 0 auto;user-select:none;-webkit-tap-highlight-color:transparent}',
       '.wcomp-dock:active{opacity:.8}',
       '.wcomp-dock img{width:16px;height:16px;border-radius:5px;background:#eef2ff;padding:1px}',
       '.wcomp-dock-text{font-weight:700;color:var(--dsw-alias-label-primary,#17181c);font-size:11px}',
 
       // 居中弹窗（与交接文档一致：居中、宽 min(92vw,420px)、圆角 20px、遮罩 rgba(0,0,0,.35)）
-      '.wcomp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px}',
+      // shell.overlay 宿主层带 pointer-events:none，面板必须自己收回点击权，否则只有第一个面板可关闭。
+      '.wcomp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;pointer-events:auto;touch-action:none}',
       '.wcomp-card{background:var(--dsw-alias-surface,#fff);border-radius:20px;width:min(92vw,420px);max-height:min(80vh,560px);overflow:auto;box-shadow:0 20px 48px rgba(0,0,0,.22);border:1px solid var(--dsw-alias-border-l2,#e7e8ec)}',
       '.wcomp-head{display:flex;align-items:center;gap:8px;padding:16px 16px 10px}',
       '.wcomp-head img{width:22px;height:22px;border-radius:6px;background:#eef2ff;padding:2px}',
@@ -455,7 +462,23 @@ window.__ModuleLoader__.load({
       '.wcomp-result-title{font-size:12px;font-weight:700;color:var(--dsw-alias-label-primary,#17181c)}',
       '.wcomp-result-ok .wcomp-result-title{color:#2a8f54}',
       '.wcomp-result-err .wcomp-result-title{color:#c0392b}',
-      '.wcomp-result-pre{white-space:pre-wrap;word-break:break-word;font-size:12px;color:var(--dsw-alias-label-primary,#17181c);margin:8px 0 0;line-height:1.5;max-height:240px;overflow:auto}'
+      '.wcomp-result-pre{white-space:pre-wrap;word-break:break-word;font-size:12px;color:var(--dsw-alias-label-primary,#17181c);margin:8px 0 0;line-height:1.5;max-height:240px;overflow:auto}',
+
+      // 宿主把 shell.overlay 的宿主层钉在 z-index:20，手机端侧边栏却是 1300 的抽屉，
+      // 面板因此被压在侧边栏下面；抬到抽屉(1300)/遮罩(1250)之上。
+      '[data-shell-overlay]{z-index:1400!important}',
+
+      // 宿主的 composer dock 是不换行的居中 flex 行，插件元素在窄屏互相压缩后内容溢出重叠，
+      // 允许换行。选择器走 slot 契约属性，不依赖会随构建变化的哈希类名。
+      'div:has(> [data-slot="conversation.composer.dock"]){flex-wrap:wrap;row-gap:6px}',
+      // dock 的直接子只有两个：slot 内容容器(display:contents) 和它后面的上下文指示器。
+      // 官方那行：槽内容保持可收缩（StatsPills 本就是 min-width:0 + 文字省略的语义），
+      // 上下文指示器保持固定宽度 —— 两者于是能留在同一行，这正是官方原本靠压缩做到的。
+      '[data-slot="conversation.composer.dock"] > *{flex:1 1 0;min-width:0}',
+      '[data-slot="conversation.composer.dock"] + *{order:1;flex:none}',
+      // 插件各自独占一层：余额条居中，压缩按钮右下角。写在通用规则之后以便覆盖它。
+      '.dshadb_barwrap{order:2;flex:0 0 100%}',
+      '.wcomp-dock-row{order:3;flex:0 0 100%;display:flex;justify-content:flex-end}'
     ].join('\n')
 
     function injectStyle () {
