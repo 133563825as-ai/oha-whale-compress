@@ -1,6 +1,6 @@
 {
   "name": "dsh-oha-whale-compress",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "压缩会话插件：侧边栏 + 输入框常驻「压缩」按钮，一键把当前会话压缩成 checkpoint（保留最新 N 条，可选压缩 provider/model），展示压缩结果。哦鲸鲸品牌。",
   "keywords": [
     "dsh",

@@ -4,7 +4,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 const DEFAULTS = {
   provider: '',
   model: '',
-  keepN: 1000
+  keepN: 1000,
+  promptTemplate: 'native',
+  prompt: ''
 }
 
 /**
